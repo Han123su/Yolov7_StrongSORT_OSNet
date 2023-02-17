@@ -419,6 +419,7 @@ def detect(save_img=False, line_thickness=1):
                 vid_writer.write(im0)
 
             prev_frames[i] = curr_frames[i]
+
     if single:
         coor = np.array(coor)
         # data = {'head_x': coor[:][0], 'center': coor[:][1], 'tail': coor[:][2], 'curve rate': curverate,
