@@ -246,9 +246,7 @@ def detect(save_img=False, line_thickness=1):
                         try:
                             judge = True
                             sk_final, binary, sk, path_coor, skeleton_idx = get_skeleton(crop_img, 0.16)
-                            cv2.namedWindow('binary', cv2.WINDOW_NORMAL)
-                            cv2.imshow('binary', binary.astype(np.uint8)*255)
-                            cv2.waitKey(1)  # 1 millisecond
+
 
                             ###########################DFS###########################
                             max_T, max_path, max_len, max_source = None, None, -1, -1

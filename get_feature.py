@@ -25,57 +25,34 @@ def nothing(x):
 def image_processing(img, omega, manual=False):
     winName = 'Colors of the rainbow'
     # cv2.namedWindow(winName)
-    if manual:
-        omega = omega
-        h, s, v = cv2.split((img))
-        clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(32, 32))
-        v = clahe.apply(v)
-        s = (s < np.mean(s) - omega * 255) * s
-        winName = 'Colors of the rainbow'
-        cv2.namedWindow(winName)
-        cv2.createTrackbar('LowerbH', winName, 30, 255, nothing)
-        cv2.createTrackbar('UpperbH', winName, 70, 255, nothing)
-        while (1):
-            lowerbH = cv2.getTrackbarPos('LowerbH', winName)
-            upperbH = cv2.getTrackbarPos('UpperbH', winName)
-            target = np.bitwise_and(h > lowerbH, h < upperbH) * h
-            cv2.imshow(winName, target)
-            if cv2.waitKey(1) == ord('q'):
-                break
-        target[target > 0] = 255
-        cv2.destroyAllWindows()
-    # else:
-    #     lowerbH = 30
-    #     upperbH = 105
-    #     target = np.bitwise_and(h > lowerbH, h < upperbH) * h
-    img = cv2.medianBlur(img, 5)
-    im1 = img[:, :, 0]
+    im4 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur_imgg = cv2.GaussianBlur(im4, (5, 5), 4)
+    # ret3, binary = cv2.threshold(g1, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binary2 = cv2.adaptiveThreshold(blur_imgg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 37, 8)
 
-    mask1 = im1 < np.mean(im1)
-    im2 = mask1 * im1
-    mask2 = im2 < np.mean(im2[im2 > 0])
-    # mask_t = im2 < np.mean(im2[im2 > 0]) + np.std(im2[im2 > 0])
-    im3 = im2 * mask2
-    mask3 = im3 < np.mean(im3[im3 > 0]) + np.std(im3[im3 > 0])
-    # cv2.imshow('im1', im1)
-    # cv2.imshow('im2', im2)
-    # cv2.imshow('im3', im3)
-    # cv2.imshow('im1', im2*mask_t)
-    # cv2.waitKey(0)
-    im4 = im3 * mask3
-    g1 = (im4 > 0) * img[:, :, 1]
-    # g1 = (im4 > 0) * cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # g1 = (g1 < np.mean(g1[g1 > 0]) + np.std(g1[g1 > 0])) * g1
+    # cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
 
-    ret3, binary = cv2.threshold(g1, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    #  morphology
+    binary2 = binary2 > 0
+    binary = scipy.ndimage.binary_fill_holes(binary2)
+    binary = morphology.remove_small_objects(binary, min_size=2000)
+
+    binary = np.uint8(binary * 255)
     kernel = np.ones((5, 5), np.uint8)
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-    # binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
 
+    binary = cv2.erode(binary, kernel, iterations=1)
     binary = binary > 0
-    r_binary = morphology.remove_small_objects(binary, min_size=300)
+    r_binary = morphology.remove_small_objects(binary, min_size=1000)
     binary = scipy.ndimage.binary_fill_holes(r_binary)
+    binary = np.uint8(binary * 255)
+    binary = cv2.dilate(binary, kernel, iterations=1)
+    h,w = binary.shape
+    binary[0:2,:] = 0
+    binary[:,0:2] = 0
+    binary[h-3:h,:] = 0
+    binary[:,w-3:w] = 0
+    # cv2.imshow('binary', binary)
+    # cv2.waitKey(0)
+    binary = binary > 0
 
     return binary
 
@@ -113,6 +90,9 @@ def get_skeleton(img, omega):
     path_coor = [sk.path_coordinates(ii) for ii in range(sk.n_paths)]
     skeleton_idx = np.array(
         [path_coor[ix][j] for ix in range(len(path_coor)) for j in range(len(path_coor[ix]))])
+    cv2.namedWindow('binary', cv2.WINDOW_NORMAL)
+    cv2.imshow('binary', binary.astype(np.uint8)*255)
+    cv2.waitKey(1)  # 1 millisecond
     return sk_final.astype(np.uint8) * 255, binary, sk, path_coor, skeleton_idx
 
 
