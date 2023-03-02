@@ -265,6 +265,7 @@ def detect(save_img=False, line_thickness=1):
                                     max_len = current_val
                                     max_path = path_c
                             new_skeleton_idx = dfs_longest_path(sk, path_coor, max_path)
+                            new_skeleton_idx = curve_fitting(new_skeleton_idx)
                             detect_pts, half_body_len = get_postition(new_skeleton_idx)
                         except:
                             print("Image is abnormal.")
@@ -337,8 +338,8 @@ def detect(save_img=False, line_thickness=1):
                                     save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[
                                         c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
                                     save_one_box(bboxes, imb, file=save_dir / 'btt' / txt_file_name / names[
-                                        c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
-                                    cv2.imwrite('skeleton/' + str(frame_idx) + '.jpg', sk_final)
+                                        c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
+                                    cv2.imwrite('skeleton/' + str(frame_idx) + '.jpg', imc)
 
 
                 ### Print time (inference + NMS)

@@ -1,7 +1,8 @@
 import numpy as np
 import networkx as nx
-
+import matplotlib.pyplot as plt
 from math import dist
+from scipy.interpolate import CubicSpline
 
 def build_tree_nodes(sk):
     pts, ll, endpoints, new_sk_idx = [], [], [], []
@@ -46,3 +47,29 @@ def dfs_longest_path(sk, path_coor, max_path):
                     new_sk_idx.extend(path_coor[i][1:])
     new_sk_idx = np.array(new_sk_idx)
     return new_sk_idx
+
+def curve_fitting(curve):
+    y = curve[:, 0]
+    x = curve[:, 1]
+    z = np.polyfit(x, y, 4)
+
+    p = np.poly1d(z)
+    new_y = p(x)
+
+    ##cubic
+
+    a = np.array([0])
+    xx = np.sqrt(np.diff(x) ** 2 + np.diff(y) ** 2)
+    xx = np.cumsum(xx)
+    xx = (np.c_[np.array([0]), [xx]])[0]
+    cs = CubicSpline(xx, curve)
+    new_x = np.linspace(0, xx[-1], 20)
+
+    # plt.figure(1)
+    # plt.imshow(img)
+    # plt.plot(x, y, 'b--')
+    # # plt.plot(x, new_y, 'r--')
+    # plt.plot(cs(new_x)[:, 1], cs(new_x)[:, 0], 'g--')
+    # plt.show()
+    # plt.close()
+    return cs(new_x)

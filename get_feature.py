@@ -26,22 +26,22 @@ def image_processing(img, omega, manual=False):
     winName = 'Colors of the rainbow'
     # cv2.namedWindow(winName)
     im4 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur_imgg = cv2.GaussianBlur(im4, (5, 5), 4)
+    blur_imgg = cv2.GaussianBlur(img[:,:,1], (7, 7), 4)
     # ret3, binary = cv2.threshold(g1, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary2 = cv2.adaptiveThreshold(blur_imgg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 37, 8)
+    binary2 = cv2.adaptiveThreshold(blur_imgg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 35, 5) # 35, 8
 
     # cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
 
     binary2 = binary2 > 0
     binary = scipy.ndimage.binary_fill_holes(binary2)
-    binary = morphology.remove_small_objects(binary, min_size=2000)
+    binary = morphology.remove_small_objects(binary, min_size=1500)
 
     binary = np.uint8(binary * 255)
     kernel = np.ones((5, 5), np.uint8)
 
     binary = cv2.erode(binary, kernel, iterations=1)
     binary = binary > 0
-    r_binary = morphology.remove_small_objects(binary, min_size=1000)
+    r_binary = morphology.remove_small_objects(binary, min_size=1500)
     binary = scipy.ndimage.binary_fill_holes(r_binary)
     binary = np.uint8(binary * 255)
     binary = cv2.dilate(binary, kernel, iterations=1)
@@ -90,7 +90,7 @@ def get_skeleton(img, omega):
     path_coor = [sk.path_coordinates(ii) for ii in range(sk.n_paths)]
     skeleton_idx = np.array(
         [path_coor[ix][j] for ix in range(len(path_coor)) for j in range(len(path_coor[ix]))])
-    cv2.namedWindow('binary', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
     cv2.imshow('binary', binary.astype(np.uint8)*255)
     cv2.waitKey(1)  # 1 millisecond
     return sk_final.astype(np.uint8) * 255, binary, sk, path_coor, skeleton_idx
