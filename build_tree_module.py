@@ -4,6 +4,25 @@ import matplotlib.pyplot as plt
 from math import dist
 from scipy.interpolate import CubicSpline
 
+
+def travel_all_path(G, endpoints):
+    max_T, max_path, max_len, max_source = None, None, -1, -1
+    for node in endpoints:
+        T = dfs_tree_with_weight(G, source=node)
+        # print(node, list(T.edges))
+        path_c = nx.dag_longest_path(T, weight="w")
+        current_val = 0
+        for u, v in zip(path_c[:-1], path_c[1:]):
+            current_val += T.get_edge_data(u, v)["w"]
+
+        if current_val > max_len:
+            max_T = T
+            max_source = node
+            max_len = current_val
+            max_path = path_c
+    return max_path
+
+
 def build_tree_nodes(sk):
     pts, ll, endpoints, new_sk_idx = [], [], [], []
     for i in range(sk.n_paths):
@@ -23,6 +42,7 @@ def build_tree_nodes(sk):
 
     return nx.Graph(ll), endpoints
 
+
 def dfs_tree_with_weight(G, source=None, depth_limit=None):
     T = nx.DiGraph()
     if source is None:
@@ -34,6 +54,7 @@ def dfs_tree_with_weight(G, source=None, depth_limit=None):
         for u, v in nx.dfs_edges(G, source, depth_limit)
     ])
     return T
+
 
 def dfs_longest_path(sk, path_coor, max_path):
     new_sk_idx = []
@@ -47,6 +68,7 @@ def dfs_longest_path(sk, path_coor, max_path):
                     new_sk_idx.extend(path_coor[i][1:])
     new_sk_idx = np.array(new_sk_idx)
     return new_sk_idx
+
 
 def curve_fitting(curve):
     y = curve[:, 0]

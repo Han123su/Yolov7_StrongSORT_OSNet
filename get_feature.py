@@ -25,24 +25,23 @@ def nothing(x):
 def image_processing(img, omega, manual=False):
     winName = 'Colors of the rainbow'
     # cv2.namedWindow(winName)
-    im4 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur_imgg = cv2.GaussianBlur(img[:,:,1], (7, 7), 4)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur_img = cv2.GaussianBlur(gray, (7, 7), 4) # not img[:,:,0]
     # ret3, binary = cv2.threshold(g1, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary2 = cv2.adaptiveThreshold(blur_imgg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 35, 5) # 35, 8
+    binary = cv2.adaptiveThreshold(blur_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 33, 6) # 35, 8 31 6
 
     # cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
 
-    binary2 = binary2 > 0
-    binary = scipy.ndimage.binary_fill_holes(binary2)
-    binary = morphology.remove_small_objects(binary, min_size=1500)
+    binary = binary > 0
+    binary = scipy.ndimage.binary_fill_holes(binary)
+    # binary = morphology.remove_small_objects(binary, min_size=1000)
 
     binary = np.uint8(binary * 255)
     kernel = np.ones((5, 5), np.uint8)
-
     binary = cv2.erode(binary, kernel, iterations=1)
     binary = binary > 0
-    r_binary = morphology.remove_small_objects(binary, min_size=1500)
-    binary = scipy.ndimage.binary_fill_holes(r_binary)
+    binary = morphology.remove_small_objects(binary, min_size=1000)
+    binary = scipy.ndimage.binary_fill_holes(binary)
     binary = np.uint8(binary * 255)
     binary = cv2.dilate(binary, kernel, iterations=1)
     h,w = binary.shape
@@ -90,9 +89,9 @@ def get_skeleton(img, omega):
     path_coor = [sk.path_coordinates(ii) for ii in range(sk.n_paths)]
     skeleton_idx = np.array(
         [path_coor[ix][j] for ix in range(len(path_coor)) for j in range(len(path_coor[ix]))])
-    cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
-    cv2.imshow('binary', binary.astype(np.uint8)*255)
-    cv2.waitKey(1)  # 1 millisecond
+    # cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
+    # cv2.imshow('binary', binary.astype(np.uint8)*255)
+    # cv2.waitKey(1)  # 1 millisecond
     return sk_final.astype(np.uint8) * 255, binary, sk, path_coor, skeleton_idx
 
 
@@ -100,15 +99,19 @@ def get_postition(line):
     ori_x, ori_y = np.array(line[:, 1]), np.array(line[:, 0])
 
     total_length = len(ori_x)
-    body_idx = (total_length / 2)
-    if total_length % 2 > 0:
-        body_x = [ori_x[0], ori_x[int(body_idx)], ori_x[int(body_idx * 2) - 1]]  # , ori_x[body_idx * 3 - 1]]
-        body_y = [ori_y[0], ori_y[int(body_idx)], ori_y[int(body_idx * 2) - 1]]  # , ori_y[body_idx * 3 - 1]]
+    body_idx = total_length / 3
+    center_idx =  int(total_length / 2)
+    if total_length % 3 > 0:
+        body_x = [ori_x[0], ori_x[int(body_idx)], ori_x[int(body_idx * 2)], ori_x[int(body_idx * 3) - 1]]
+        body_y = [ori_y[0], ori_y[int(body_idx)], ori_y[int(body_idx) * 2], ori_y[int(body_idx * 3) - 1]]
     else:
-        body_x = [ori_x[0], ori_x[int(body_idx) - 1], ori_x[int(body_idx * 2) - 1]]  # , ori_x[body_idx * 3 - 1]]
-        body_y = [ori_y[0], ori_y[int(body_idx) - 1], ori_y[int(body_idx * 2) - 1]]
+        body_idx = int(body_idx)
+        body_x = [ori_x[0], ori_x[(body_idx) - 1], ori_x[(body_idx * 2) - 1], ori_x[body_idx * 3 - 1]]
+        body_y = [ori_y[0], ori_y[(body_idx) - 1], ori_y[(body_idx * 2) - 1], ori_y[body_idx * 3 - 1]]
+    if total_length % 2== 0:
+        center_idx = center_idx - 1
 
-    return np.c_[list(map(int, body_x)), list(map(int, body_y))], int(body_idx)
+    return np.c_[list(map(int, body_x)), list(map(int, body_y))], center_idx
 
 
 def get_body_to_tail(h_idx, skeleton_idx, l):
@@ -132,7 +135,7 @@ def azimuthOrient(curr, img):
     # 當前位置- 先前位置判斷方向  and 頭尾兩點-中心點去判斷對不對 累積個4次
     angle = []
     area = []
-    for i in range(0, len(curr), 2):
+    for i in range(0, len(curr), 3):
         # 面積判斷
         right, bottom = curr[i] + w_size
         left, top = curr[i] - w_size
@@ -159,9 +162,7 @@ def azimuthOrient(curr, img):
     if area[0] > area[1]:
         return 0, curr
     else:
-        temp = curr[0, [0, 1]]
-        curr[0, [0, 1]] = curr[2, [0, 1]]
-        curr[2, [0, 1]] = temp
+        curr = curr[::-1]
         return 2, curr
 
 
