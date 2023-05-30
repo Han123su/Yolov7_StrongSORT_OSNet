@@ -26,6 +26,7 @@ from collections import Counter
 
 import warnings
 import networkx as nx
+
 warnings.filterwarnings('ignore')
 
 FILE = Path(__file__).resolve()
@@ -54,13 +55,14 @@ from calculate_metrics import *
 from get_feature import *
 from build_tree_module import *
 
+
 def detect(save_img=False, line_thickness=1):
     source, weights, show_vid, save_txt, imgsz, trace = opt.source, opt.yolo_weights, opt.show_vid, opt.save_txt, opt.img_size, opt.trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
-    save_crop = True
+    save_crop = False
     project = ROOT / 'runs/track'  # save results to project/name
     exp_name = 'exp'  # save results to project/name
     strong_sort_weights = WEIGHTS / 'osnet_x0_25_msmt17.pt'  # model.pt path,
@@ -75,10 +77,6 @@ def detect(save_img=False, line_thickness=1):
     save_img = opt.save_img
     line_thickness = opt.line_thickness
     draw = opt.draw
-    single = opt.single
-    track, contour_area, auc_area, curverate, = [], [], [], []  # track save array
-    coor = [[] for i in range(4)]
-    cls_joint_data = [[[] for cj in range(7)] for ci in range(20)]
     total_id = set()
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.exp_name, exist_ok=opt.exist_ok))  # increment run
@@ -154,7 +152,7 @@ def detect(save_img=False, line_thickness=1):
 
     # Run tracking
     # model.warmup(imgsz=(1 if pt else nr_sources, 3, *imgsz))  # warmup
-    dt, seen = [0.0, 0.0, 0.0, 0.0], 0
+    dt, seen = [0.0, 0.0, 0.0, 0.0, 0.0], 0
     curr_frames, prev_frames = [None] * nr_sources, [None] * nr_sources
 
     # for path, img, im0s, vid_cap in dataset:
@@ -244,7 +242,8 @@ def detect(save_img=False, line_thickness=1):
                                 except:
 
                                     pass
-                        bboxes = list(map(int,bboxes))
+                        bboxes = list(map(int, bboxes))
+                        t6 = time_synchronized()
                         crop_img = imc[bboxes[1]: bboxes[3], bboxes[0]:bboxes[2], :]
                         try:
                             judge = True
@@ -277,34 +276,18 @@ def detect(save_img=False, line_thickness=1):
                             half_pf = np.int32(np.vstack((body_to_tail, body_to_tail[0])))
                             b_to_t_Area = cv2.contourArea(half_pf)
                             sum_AUC = get_AUC(b_to_t_Area, len_straight)
-                            if single:
-                                coor[0].append(return_pts[0])
-                                coor[1].append(return_pts[1])
-                                coor[2].append(return_pts[2])
-                                coor[3].append(return_pts[3])
-                                contour_area.append(b_to_t_Area)
-                                curverate.append(curve)
-                                auc_area.append(sum_AUC)
-                            else:
-                                id = int(id)
-                                cls_joint_data[id][0].append(return_pts[0])
-                                cls_joint_data[id][1].append(return_pts[1])
-                                cls_joint_data[id][2].append(return_pts[2])
-                                cls_joint_data[id][3].append(return_pts[3])
-                                cls_joint_data[id][4].append(b_to_t_Area)
-                                cls_joint_data[id][5].append(curve)
-                                cls_joint_data[id][6].append(sum_AUC)
-
+                            t7 = time_synchronized()
+                            dt[4] += t7 - t6
                             if save_crop:
                                 # imb = imc.copy()
                                 # half_pf[:, [1]], half_pf[:, [0]] = half_pf[:, [0]], half_pf[:, [1]]
                                 # half_pf[:, [1]] += int(bboxes[1])
                                 # half_pf[:, [0]] += int(bboxes[0])
                                 # imb = cv2.polylines(imb, [half_pf], True, (0, 0, 255), 2)
-                                imc = cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
-                                imc = cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
-                                imc = cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
-                                imc = cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
+                                cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
+                                cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
+                                cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
+                                cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
                                 cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
                                 cv2.imshow(str(p), imc)
                                 cv2.waitKey(1)
@@ -319,13 +302,11 @@ def detect(save_img=False, line_thickness=1):
                                 with open(txt_path + '.txt', 'a') as f:
                                     f.write(('%g ' * 11 + '\n') % (frame_idx + 1, cls, id, bbox_left,  # MOT format
                                                                    bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))
-                                with open(txt_path + 'body_idx.txt', 'a') as f2:
-                                    print(frame_idx + 1, id, [x_coor[0], y_coor[0]],  # MOT format
-                                          [x_coor[1], y_coor[1]], [x_coor[2], y_coor[2]],[x_coor[3], y_coor[3]], -1, -1,
-                                          -1, i, file=f2)
-                                with open(txt_path + 'area_curve.txt', 'a') as f3:
-                                    print(frame_idx + 1, id, curve,  # MOT format
-                                          b_to_t_Area, sum_AUC, i, file=f3)
+                                with open(txt_path +'_'+ str(int(id)) + '.txt', 'a') as f:
+                                    f.write(('%g ' * 12 + '\n') % (
+                                        frame_idx + 1, return_pts[0, 0], return_pts[0, 1], return_pts[1, 0], return_pts[1, 1],
+                                        return_pts[2, 0], return_pts[2, 1], return_pts[3, 0], return_pts[3, 1],# MOT format
+                                        b_to_t_Area, curve, sum_AUC))
 
                             if save_vid or save_crop or show_vid:  # Add bbox to image
                                 c = int(cls)  # integer class
@@ -341,10 +322,9 @@ def detect(save_img=False, line_thickness=1):
                                         c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
                                     # save_one_box(bboxes, imb, file=save_dir / 'btt' / txt_file_name / names[
                                     #     c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
-                                    if not os.path.isdir(save_dir / 'ori_img'):
-                                        os.mkdir(save_dir / 'ori_img')
-                                    cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) +'.jpg')), imf)
-
+                    # if not os.path.isdir(save_dir / 'ori_img'):
+                    #     os.mkdir(save_dir / 'ori_img')
+                    # cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) + '.jpg')), imf)
 
                 ### Print time (inference + NMS)
                 print(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
@@ -421,47 +401,12 @@ def detect(save_img=False, line_thickness=1):
                         fps, w, h = 30, im0.shape[1], im0.shape[0]
                         save_path += '.mp4'
                     vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                # im0 = cv2.circle(im0, (x_coor[0], y_coor[0]), 1, (255, 255, 0), 3)
-                # im0 = cv2.circle(im0, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
-                # im0 = cv2.circle(im0, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
+
                 vid_writer.write(im0)
 
             prev_frames[i] = curr_frames[i]
 
-    if single:
-        coor = np.array(coor)
-        # data = {'head_x': coor[:][0], 'center': coor[:][1], 'tail': coor[:][2], 'curve rate': curverate,
-        #         'contour-AUC': contour_area,
-        #         'sum-AUC': auc_area}
-        data = {'head_x': coor[0, :, 0], 'head_y': coor[0, :, 1], 'center_x1': coor[1, :, 0], 'center_y1': coor[1, :, 1],
-                'center_x2': coor[2, :, 0], 'center_y2': coor[2, :, 1],'tail_x': coor[3, :, 0], 'tail_y': coor[3, :, 1],
-                'curve rate': curverate,
-                'contour-AUC': contour_area,
-                'sum-AUC': auc_area}
-        df = pd.DataFrame(data)
-        txt_name = save_dir / 'record_all_values.csv'
-        df.to_csv(txt_name, index=False)
-    else:
-        empty_list = [[] for _ in range(7)]
-        for i in range(len(cls_joint_data)):
-            if cls_joint_data[i] != empty_list:
-                head, c1, c2, tail, cr, ctr, sauc = np.array(
-                    cls_joint_data[i][0]), np.array(cls_joint_data[i][1]) \
-                    , np.array(cls_joint_data[i][2]), np.array(
-                    cls_joint_data[i][3]), np.array(cls_joint_data[i][4]) \
-                    , np.array(cls_joint_data[i][5]), np.array(cls_joint_data[i][6])
-                data = {'head_x': head[:, 0], 'head_y': head[:, 1],
-                        'center_x1': c1[:, 0], 'center_y1': c1[:, 1],
-                        'center_x2': c2[:, 0], 'center_y2': c2[:, 1],
-                        'tail_x': tail[:, 0], 'tail_y': tail[:, 1],
-                        'curve rate': cr,
-                        'contour-AUC': ctr,
-                        'sum-AUC': sauc}
-                df = pd.DataFrame(data)
-                file_name = str(i) + '_Zebrafish_data.csv'
-                txt_name = save_dir / 'labels' / file_name
-                df.to_csv(txt_name, index=False)
-
+    print(f'Done.yolo: ({dt[1]:.3f}s), strongsort: ({dt[3]:.3f}s), image_processing: ({dt[4]:.3f}s)')
     if save_txt or save_vid or save_img:
         print(f"Results saved to ", save_dir)
     print(f'Done. ({time.time() - t0:.3f}s)')

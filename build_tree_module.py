@@ -73,14 +73,6 @@ def dfs_longest_path(sk, path_coor, max_path):
 def curve_fitting(curve):
     y = curve[:, 0]
     x = curve[:, 1]
-    z = np.polyfit(x, y, 4)
-
-    p = np.poly1d(z)
-    new_y = p(x)
-
-    ##cubic
-
-    a = np.array([0])
     xx = np.sqrt(np.diff(x) ** 2 + np.diff(y) ** 2)
     xx = np.cumsum(xx)
     xx = (np.c_[np.array([0]), [xx]])[0]
