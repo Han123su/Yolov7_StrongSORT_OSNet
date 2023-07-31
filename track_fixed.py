@@ -143,8 +143,8 @@ def detect(save_img=False, line_thickness=1):
     trajectory = {}
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-
+    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    colors = [[0, 0, 255], [0, 0, 255], [0, 0, 255]]
     # Run inference
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
@@ -246,21 +246,13 @@ def detect(save_img=False, line_thickness=1):
                         t6 = time_synchronized()
                         crop_img = imc[bboxes[1]: bboxes[3], bboxes[0]:bboxes[2], :]
                         try:
-                            judge = True
                             sk_final, binary, sk, path_coor, skeleton_idx = get_skeleton(crop_img, 0.16)
-                        except:
-                            print("Image is abnormal.")
-                        try:
                             ###########################DFS###########################
                             G, endpoints = build_tree_nodes(sk)
                             max_path = travel_all_path(G, endpoints)
                             new_skeleton_idx = dfs_longest_path(sk, path_coor, max_path)
                             new_skeleton_idx = curve_fitting(new_skeleton_idx)
-                            detect_pts, half_body_len = get_postition(new_skeleton_idx)
-                        except:
-                            print("Skeleton has circle.")
-                            judge = False
-                        if judge:
+                            detect_pts, half_body_len, center_pts = get_postition(new_skeleton_idx)
                             head_idx, detect_pts = azimuthOrient(detect_pts, binary)
                             body_to_tail = get_body_to_tail(head_idx, new_skeleton_idx, half_body_len)
 
@@ -269,6 +261,9 @@ def detect(save_img=False, line_thickness=1):
                             return_pts[:, 0] = detect_pts[:, 0] + bboxes[0]
                             return_pts[:, 1] = detect_pts[:, 1] + bboxes[1]
 
+                            center_pts[:, 0] = center_pts[:, 0] + bboxes[0]
+                            center_pts[:, 1] = center_pts[:, 1] + bboxes[1]
+
                             x_coor = detect_pts[:, 0] + bboxes[0]
                             y_coor = detect_pts[:, 1] + bboxes[1]
                             # contour area
@@ -276,55 +271,59 @@ def detect(save_img=False, line_thickness=1):
                             half_pf = np.int32(np.vstack((body_to_tail, body_to_tail[0])))
                             b_to_t_Area = cv2.contourArea(half_pf)
                             sum_AUC = get_AUC(b_to_t_Area, len_straight)
-                            t7 = time_synchronized()
-                            dt[4] += t7 - t6
+                        except:
+                            print("Please check image or skeleton has circle.")
+
+                        t7 = time_synchronized()
+                        dt[4] += t7 - t6
+                        # if save_crop:
+                        # imb = imc.copy()
+                        # half_pf[:, [1]], half_pf[:, [0]] = half_pf[:, [0]], half_pf[:, [1]]
+                        # half_pf[:, [1]] += int(bboxes[1])
+                        # half_pf[:, [0]] += int(bboxes[0])
+                        # imb = cv2.polylines(imb, [half_pf], True, (0, 0, 255), 2)
+                        cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
+                        cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
+                        cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
+                        cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
+                        cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
+                        cv2.imshow(str(p), imc)
+                        cv2.waitKey(1)
+
+                        if save_txt:
+                            # to MOT format
+                            bbox_left = output[0]
+                            bbox_top = output[1]
+                            bbox_w = output[2] - output[0]
+                            bbox_h = output[3] - output[1]
+                            # Write MOT compliant results to file
+                            with open(txt_path + '.txt', 'a') as f:
+                                f.write(('%g ' * 11 + '\n') % (frame_idx + 1, cls, id, bbox_left,  # MOT format
+                                                               bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))
+                            with open(txt_path + '_' + str(int(id)) + '.txt', 'a') as f:
+                                f.write(('%g ' * 14 + '\n') % (
+                                    frame_idx + 1, return_pts[0, 0], return_pts[0, 1], return_pts[1, 0],
+                                    return_pts[1, 1],
+                                    return_pts[2, 0], return_pts[2, 1], return_pts[3, 0], return_pts[3, 1],
+                                    center_pts[0, 0], center_pts[0, 1], b_to_t_Area, curve, sum_AUC))
+
+                        if save_vid or save_crop or show_vid:  # Add bbox to image
+                            c = int(cls)  # integer class
+                            id = int(id)  # integer id
+                            label = None if hide_labels else (f'{id} {names[c]}' if hide_conf else \
+                                                                  (
+                                                                      f'{id} {conf:.2f}' if hide_class else f'{id} {names[c]} {conf:.2f}'))
+                            plot_one_box(bboxes, im0, label=label, color=colors[int(cls)],
+                                         line_thickness=line_thickness)
                             if save_crop:
-                                # imb = imc.copy()
-                                # half_pf[:, [1]], half_pf[:, [0]] = half_pf[:, [0]], half_pf[:, [1]]
-                                # half_pf[:, [1]] += int(bboxes[1])
-                                # half_pf[:, [0]] += int(bboxes[0])
-                                # imb = cv2.polylines(imb, [half_pf], True, (0, 0, 255), 2)
-                                cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
-                                cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
-                                cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
-                                cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
-                                cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
-                                cv2.imshow(str(p), imc)
-                                cv2.waitKey(1)
-
-                            if save_txt:
-                                # to MOT format
-                                bbox_left = output[0]
-                                bbox_top = output[1]
-                                bbox_w = output[2] - output[0]
-                                bbox_h = output[3] - output[1]
-                                # Write MOT compliant results to file
-                                with open(txt_path + '.txt', 'a') as f:
-                                    f.write(('%g ' * 11 + '\n') % (frame_idx + 1, cls, id, bbox_left,  # MOT format
-                                                                   bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))
-                                with open(txt_path +'_'+ str(int(id)) + '.txt', 'a') as f:
-                                    f.write(('%g ' * 12 + '\n') % (
-                                        frame_idx + 1, return_pts[0, 0], return_pts[0, 1], return_pts[1, 0], return_pts[1, 1],
-                                        return_pts[2, 0], return_pts[2, 1], return_pts[3, 0], return_pts[3, 1],# MOT format
-                                        b_to_t_Area, curve, sum_AUC))
-
-                            if save_vid or save_crop or show_vid:  # Add bbox to image
-                                c = int(cls)  # integer class
-                                id = int(id)  # integer id
-                                label = None if hide_labels else (f'{id} {names[c]}' if hide_conf else \
-                                                                      (
-                                                                          f'{id} {conf:.2f}' if hide_class else f'{id} {names[c]} {conf:.2f}'))
-                                plot_one_box(bboxes, im0, label=label, color=colors[int(cls)],
-                                             line_thickness=line_thickness)
-                                if save_crop:
-                                    txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
-                                    save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[
-                                        c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
-                                    # save_one_box(bboxes, imb, file=save_dir / 'btt' / txt_file_name / names[
-                                    #     c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
-                    # if not os.path.isdir(save_dir / 'ori_img'):
-                    #     os.mkdir(save_dir / 'ori_img')
-                    # cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) + '.jpg')), imf)
+                                txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
+                                save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[
+                                    c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
+                                # save_one_box(bboxes, imb, file=save_dir / 'btt' / txt_file_name / names[
+                                #     c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
+                    if not os.path.isdir(save_dir / 'ori_img'):
+                        os.mkdir(save_dir / 'ori_img')
+                    cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) + '.jpg')), imf)
 
                 ### Print time (inference + NMS)
                 print(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
@@ -404,6 +403,9 @@ def detect(save_img=False, line_thickness=1):
 
                 vid_writer.write(im0)
 
+            # if not os.path.isdir(save_dir / 'ori_img'):
+            #     os.mkdir(save_dir / 'ori_img')
+            # cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) + '.jpg')), im0)
             prev_frames[i] = curr_frames[i]
 
     print(f'Done.yolo: ({dt[1]:.3f}s), strongsort: ({dt[3]:.3f}s), image_processing: ({dt[4]:.3f}s)')
@@ -414,6 +416,7 @@ def detect(save_img=False, line_thickness=1):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    # yolov7/runs/base_model/exp9-normal-anchor/weights/best.pt
     parser.add_argument('--yolo-weights', nargs='+', type=str, default='weights/yolov7-tiny.pt',
                         help='model.pt path(s)')
     parser.add_argument('--strong-sort-weights', type=str, default=WEIGHTS / 'osnet_x0_25_msmt17.pt')
@@ -423,7 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--conf-thres', type=float, default=0.35, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--show-vid', action='store_true', default=True, help='display results')
+    parser.add_argument('--show-vid', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--single', action='store_true', help='single or multi class')
     parser.add_argument('--save-img', action='store_true', help='save results to *.jpg')
@@ -438,7 +441,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp-name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--trace', action='store_true', help='trace model')
-    parser.add_argument('--line-thickness', default=1, type=int, help='bounding box thickness (pixels)')
+    parser.add_argument('--line-thickness', default=8, type=int, help='bounding box thickness (pixels)')
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--hide-class', default=False, action='store_true', help='hide IDs')

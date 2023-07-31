@@ -26,9 +26,11 @@ def image_processing(img, omega, manual=False):
     winName = 'Colors of the rainbow'
     # cv2.namedWindow(winName)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur_img = cv2.GaussianBlur(gray, (7, 7), 4) # not img[:,:,0]
+    # gray = img[:, :, 1]
+    blur_img = cv2.GaussianBlur(gray, (7, 7), 4)  # not img[:,:,0]
     # ret3, binary = cv2.threshold(g1, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    binary = cv2.adaptiveThreshold(blur_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 33, 6) # 35, 8 31 6
+    binary = cv2.adaptiveThreshold(blur_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 33,
+                                   6)  # 35, 8 31 6
 
     # cv2.namedWindow('binary', cv2.WINDOW_AUTOSIZE)
 
@@ -44,11 +46,11 @@ def image_processing(img, omega, manual=False):
     binary = scipy.ndimage.binary_fill_holes(binary)
     binary = np.uint8(binary * 255)
     binary = cv2.dilate(binary, kernel, iterations=1)
-    h,w = binary.shape
-    binary[0:2,:] = 0
-    binary[:,0:2] = 0
-    binary[h-3:h,:] = 0
-    binary[:,w-3:w] = 0
+    h, w = binary.shape
+    binary[0:2, :] = 0
+    binary[:, 0:2] = 0
+    binary[h - 3:h, :] = 0
+    binary[:, w - 3:w] = 0
     # cv2.imshow('binary', binary)
     # cv2.waitKey(0)
     binary = binary > 0
@@ -100,7 +102,7 @@ def get_postition(line):
 
     total_length = len(ori_x)
     body_idx = total_length / 3
-    center_idx =  int(total_length / 2)
+    center_idx = int(total_length / 2)
     if total_length % 3 > 0:
         body_x = [ori_x[0], ori_x[int(body_idx)], ori_x[int(body_idx * 2)], ori_x[int(body_idx * 3) - 1]]
         body_y = [ori_y[0], ori_y[int(body_idx)], ori_y[int(body_idx) * 2], ori_y[int(body_idx * 3) - 1]]
@@ -108,10 +110,13 @@ def get_postition(line):
         body_idx = int(body_idx)
         body_x = [ori_x[0], ori_x[(body_idx) - 1], ori_x[(body_idx * 2) - 1], ori_x[body_idx * 3 - 1]]
         body_y = [ori_y[0], ori_y[(body_idx) - 1], ori_y[(body_idx * 2) - 1], ori_y[body_idx * 3 - 1]]
-    if total_length % 2== 0:
+    if total_length % 2 == 0:
         center_idx = center_idx - 1
+    body_cx = [ori_x[center_idx]]
+    body_cy = [ori_y[center_idx]]
 
-    return np.c_[list(map(int, body_x)), list(map(int, body_y))], center_idx
+    return np.c_[list(map(int, body_x)), list(map(int, body_y))], center_idx, np.c_[
+        list(map(int, body_cx)), list(map(int, body_cy))]
 
 
 def get_body_to_tail(h_idx, skeleton_idx, l):
