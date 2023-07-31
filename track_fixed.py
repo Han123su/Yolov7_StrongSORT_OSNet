@@ -51,9 +51,9 @@ from yolov7.utils.torch_utils import select_device, load_classifier, time_synchr
 
 from strong_sort.utils.parser import get_config
 from strong_sort.strong_sort import StrongSORT
-from calculate_metrics import *
-from get_feature import *
-from build_tree_module import *
+from extract_feature import *
+from img_preprocess import *
+from build_skeleton_module import *
 
 
 def detect(save_img=False, line_thickness=1):
@@ -246,13 +246,15 @@ def detect(save_img=False, line_thickness=1):
                         t6 = time_synchronized()
                         crop_img = imc[bboxes[1]: bboxes[3], bboxes[0]:bboxes[2], :]
                         try:
-                            sk_final, binary, sk, path_coor, skeleton_idx = get_skeleton(crop_img, 0.16)
+                            z_img = img_preprocessing(crop_img, 0.16)
+                            sk_final, binary, sk, path_coor, skeleton_idx = extract_skeleton(z_img)
+
                             ###########################DFS###########################
                             G, endpoints = build_tree_nodes(sk)
                             max_path = travel_all_path(G, endpoints)
                             new_skeleton_idx = dfs_longest_path(sk, path_coor, max_path)
                             new_skeleton_idx = curve_fitting(new_skeleton_idx)
-                            detect_pts, half_body_len, center_pts = get_postition(new_skeleton_idx)
+                            detect_pts, half_body_len, center_pts = generate_feature(new_skeleton_idx)
                             head_idx, detect_pts = azimuthOrient(detect_pts, binary)
                             body_to_tail = get_body_to_tail(head_idx, new_skeleton_idx, half_body_len)
 
@@ -282,13 +284,13 @@ def detect(save_img=False, line_thickness=1):
                         # half_pf[:, [1]] += int(bboxes[1])
                         # half_pf[:, [0]] += int(bboxes[0])
                         # imb = cv2.polylines(imb, [half_pf], True, (0, 0, 255), 2)
-                        cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
-                        cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
-                        cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
-                        cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
-                        cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
-                        cv2.imshow(str(p), imc)
-                        cv2.waitKey(1)
+                        # cv2.circle(imc, (x_coor[0], y_coor[0]), 1, (255, 0, 255), 3)
+                        # cv2.circle(imc, (x_coor[1], y_coor[1]), 1, (0, 255, 0), 3)
+                        # cv2.circle(imc, (x_coor[2], y_coor[2]), 1, (0, 0, 255), 3)
+                        # cv2.circle(imc, (x_coor[3], y_coor[3]), 1, (0, 255, 255), 3)
+                        # cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
+                        # cv2.imshow(str(p), imc)
+                        # cv2.waitKey(1)
 
                         if save_txt:
                             # to MOT format
@@ -321,10 +323,6 @@ def detect(save_img=False, line_thickness=1):
                                     c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
                                 # save_one_box(bboxes, imb, file=save_dir / 'btt' / txt_file_name / names[
                                 #     c] / f'{id}' / f'{p.stem + str(frame_idx)}.jpg', BGR=True)
-                    if not os.path.isdir(save_dir / 'ori_img'):
-                        os.mkdir(save_dir / 'ori_img')
-                    cv2.imwrite(str(save_dir / 'ori_img/' / (str(frame_idx) + '.jpg')), imf)
-
                 ### Print time (inference + NMS)
                 print(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
 

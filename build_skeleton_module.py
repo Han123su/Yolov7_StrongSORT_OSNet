@@ -1,8 +1,46 @@
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
+
 from math import dist
+from skimage import morphology
+from skan import csr, Skeleton
+from plantcv import plantcv as pcv
 from scipy.interpolate import CubicSpline
+
+
+def extract_skeleton(img):
+    thres_min_size = 20
+    # obtain binary skeleton
+    skeleton = morphology.skeletonize(img)
+    skeleton = skeleton.astype(np.uint8) * 255
+    pruned_skeleton, _, _ = pcv.morphology.prune(skel_img=skeleton, size=40)
+
+    skeleton_img = pruned_skeleton > 0
+    skeleton_img = morphology.skeletonize(skeleton_img).astype(bool)
+    #######################################################
+    graph_class = csr.Skeleton(skeleton_img)
+    stats = csr.branch_statistics(graph_class.graph)
+
+    for ii in range(np.size(stats, axis=0)):
+        if stats[ii, 2] <= thres_min_size and stats[ii, 3] == 1:
+            # remove the branch
+            for jj in range(np.size(graph_class.path_coordinates(ii), axis=0)):
+                skeleton_img[int(graph_class.path_coordinates(ii)[jj, 0]), int(
+                    graph_class.path_coordinates(ii)[jj, 1])] = False
+
+    # during the short branch removing process it can happen that some branches are not longer connected as the complete three branches intersection is removed
+    # therefor the remaining skeleton is dilatated and then skeletonized again
+    #######################################################
+    sk_dilation = morphology.binary_dilation(skeleton_img)
+    sk_final = morphology.skeletonize(sk_dilation)
+    sk = Skeleton(sk_final)
+    path_coor = [sk.path_coordinates(ii) for ii in range(sk.n_paths)]
+    skeleton_idx = np.array(
+        [path_coor[ix][j] for ix in range(len(path_coor)) for j in range(len(path_coor[ix]))])
+    # cv2.namedWindow('img', cv2.WINDOW_AUTOSIZE)
+    # cv2.imshow('img', img.astype(np.uint8)*255)
+    # cv2.waitKey(1)
+    return sk_final.astype(np.uint8) * 255, img, sk, path_coor, skeleton_idx
 
 
 def travel_all_path(G, endpoints):
