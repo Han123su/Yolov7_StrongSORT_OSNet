@@ -1,15 +1,7 @@
-import os
 import cv2
 import scipy
-import math
 import numpy as np
-
-from math import dist
 from skimage import morphology
-from skan import csr, Skeleton
-
-from plantcv import plantcv as pcv
-from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
 
 
