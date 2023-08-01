@@ -104,6 +104,12 @@ If you find this project useful in your research, please consider cite:
     howpublished = {\url{https://github.com/mikel-brostrom/Yolov7_StrongSORT_OSNet}},
     year={2022}
 }
+@lx-cly{yolov7-obb-2022,
+    title={YOLOv7_OBB},
+    author={lx-cly},
+    howpublished = {\url{https://github.com/lx-cly/YOLOv7_OBB}},
+    year={2022}
+}
 ```
 
 ## Contact 
