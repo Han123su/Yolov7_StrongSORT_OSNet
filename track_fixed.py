@@ -242,20 +242,21 @@ def detect(save_img=False, line_thickness=1):
                                 except:
 
                                     pass
-                        bboxes = list(map(int, bboxes))
+                        bboxes = list(map(int, bboxes)) #  bounding box
                         t6 = time_synchronized()
                         crop_img = imc[bboxes[1]: bboxes[3], bboxes[0]:bboxes[2], :]
                         try:
-                            z_img = img_preprocessing(crop_img, 0.16)
+                            z_img = img_preprocessing(crop_img)
                             sk_final, binary, sk, path_coor, skeleton_idx = extract_skeleton(z_img)
-
+  
                             ###########################DFS###########################
                             G, endpoints = build_tree_nodes(sk)
                             max_path = travel_all_path(G, endpoints)
                             new_skeleton_idx = dfs_longest_path(sk, path_coor, max_path)
-                            new_skeleton_idx = curve_fitting(new_skeleton_idx)
+                            ##
+                            new_skeleton_idx = curve_fitting(new_skeleton_idx)  
                             detect_pts, half_body_len, center_pts = generate_feature(new_skeleton_idx)
-                            head_idx, detect_pts = azimuthOrient(detect_pts, binary)
+                            head_idx, detect_pts = azimuthOrient(detect_pts, binary) 
                             body_to_tail = get_body_to_tail(head_idx, new_skeleton_idx, half_body_len)
 
                             # detect_pts = assignment_point(track, detect_pts)
@@ -415,13 +416,13 @@ def detect(save_img=False, line_thickness=1):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # yolov7/runs/base_model/exp9-normal-anchor/weights/best.pt
-    parser.add_argument('--yolo-weights', nargs='+', type=str, default='weights/yolov7-tiny.pt',
+    parser.add_argument('--yolo-weights', nargs='+', type=str, default='yolov7/runs/base_model/exp9-normal-anchor/weights/best.pt',
                         help='model.pt path(s)')
     parser.add_argument('--strong-sort-weights', type=str, default=WEIGHTS / 'osnet_x0_25_msmt17.pt')
     parser.add_argument('--config-strongsort', type=str, default='strong_sort/configs/strong_sort.yaml')
     parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.35, help='object confidence threshold')
+    parser.add_argument('--img-size', type=int, default=1376, help='inference size (pixels)')
+    parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--show-vid', action='store_true', help='display results')
