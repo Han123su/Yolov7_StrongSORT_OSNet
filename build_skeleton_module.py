@@ -1,38 +1,41 @@
 import numpy as np
 import networkx as nx
-
+import cv2
 from math import dist
 from skimage import morphology
 from skan import csr, Skeleton
 from plantcv import plantcv as pcv
 from scipy.interpolate import CubicSpline
 
-
 def extract_skeleton(img):
-    thres_min_size = 20
+    thres_min_size = 20 # �������[���䪺�̤psize
     # obtain binary skeleton
+
     skeleton = morphology.skeletonize(img)
     skeleton = skeleton.astype(np.uint8) * 255
-    pruned_skeleton, _, _ = pcv.morphology.prune(skel_img=skeleton, size=40)
-
+    pruned_skeleton, _, _ = pcv.morphology.prune(skel_img=skeleton, size=thres_min_size) # remove branch
     skeleton_img = pruned_skeleton > 0
+
     skeleton_img = morphology.skeletonize(skeleton_img).astype(bool)
     #######################################################
-    graph_class = csr.Skeleton(skeleton_img)
-    stats = csr.branch_statistics(graph_class.graph)
-
-    for ii in range(np.size(stats, axis=0)):
-        if stats[ii, 2] <= thres_min_size and stats[ii, 3] == 1:
-            # remove the branch
-            for jj in range(np.size(graph_class.path_coordinates(ii), axis=0)):
-                skeleton_img[int(graph_class.path_coordinates(ii)[jj, 0]), int(
-                    graph_class.path_coordinates(ii)[jj, 1])] = False
-
+#    graph_class = csr.Skeleton(skeleton_img) # coordiantes
+#    stats = csr.branch_statistics(graph_class.graph)
+#    
+#    # https://skeleton-analysis.org/stable/api/skan.csr.html
+#    for ii in range(np.size(stats, axis=0)):
+#        if stats[ii, 2] <= thres_min_size and stats[ii, 3] == 1:
+#            # remove the branch
+#            for jj in range(np.size(graph_class.path_coordinates(ii), axis=0)):
+#                skeleton_img[int(graph_class.path_coordinates(ii)[jj, 0]), int(
+#                    graph_class.path_coordinates(ii)[jj, 1])] = False
+    
     # during the short branch removing process it can happen that some branches are not longer connected as the complete three branches intersection is removed
     # therefor the remaining skeleton is dilatated and then skeletonized again
     #######################################################
+
     sk_dilation = morphology.binary_dilation(skeleton_img)
     sk_final = morphology.skeletonize(sk_dilation)
+
     sk = Skeleton(sk_final)
     path_coor = [sk.path_coordinates(ii) for ii in range(sk.n_paths)]
     skeleton_idx = np.array(
@@ -107,7 +110,7 @@ def dfs_longest_path(sk, path_coor, max_path):
     new_sk_idx = np.array(new_sk_idx)
     return new_sk_idx
 
-
+# https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html
 def curve_fitting(curve):
     y = curve[:, 0]
     x = curve[:, 1]
