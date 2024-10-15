@@ -1,0 +1,24 @@
+(CheckTailSwing資料夾)  此處注意所有的執行檔案資料夾位置要正確
+
+CheckTailSwing資料夾中的build_skeleton_module.py是我改過的，非學長原始檔，這邊使用這個
+
+p.s. build_skeleton_module.py 在/data/2TSSD/Han212/zebrafish/Yolo_model/Yolov7_StrongSORT_OSNet中 
+=> 是學長原本的程式(沒問題的)
+
+斑馬魚身軀擺動:
+$ python track_fixed_1.py --img-size 1376 --yolo-weights yolov7/weights/light-box/weights/best.pt --source IMG_2575_3_10s.mp4 --device 1 --show-vid --save-txt --save-vid
+
+rotation.py => 做特徵點影像對位
+
+runs/track/**/process_img:二值化 + 骨架 + 提取特徵 影像
+runs/track/**/alignment:取特徵點進行旋轉(不包含位移) => 主要使用rotation.py來做
+
+疊加 (ubuntu讀取資料順序找不出規律因此使用windows來處理)
+$ conda activate overlay
+$ cd Desktop/overlay
+
+資料夾overlay中: 將要處理的影像放入Source => 執行transparent.py => Result中產生經透明化(剩骨架)的影像
+                 => 執行test.py(此程式包含位移及重疊)  
+                 ** 第一次需先確認讀取第一張的紅點座標，改第37行程式 ex. new_position = (162-x,56-y) **
+                 ** 也要注意自動抓取第一個紅點，是否皆沒問題，有些會抓錯**
+	         ** 此處我頭部的方向統一旋轉後為左上角 **
